@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ALTITUDE — 쌓아 올리기</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root{
+    --dawn-1:#FFE0B8; --dawn-2:#FFB199;
+    --dusk-1:#FF7E5F; --dusk-2:#7D5BA6;
+    --night-1:#2C2A4A; --night-2:#12112A;
+    --space-1:#0B0B2A; --space-2:#050514;
+    --block-1:#FF6B6B; --block-2:#4ECDC4; --block-3:#FFE66D; --block-4:#A78BFA; --block-5:#6BCB77;
+    --ink:#0F0E1A;
+    --paper:#FFFFFF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    width:100%;height:100%;overflow:hidden;
+    font-family:'Space Grotesk',sans-serif;
+    background:#0B0B2A;
+    touch-action:manipulation;
+    user-select:none;
+  }
+  #stage{position:fixed;inset:0;}
+  canvas{display:block;width:100%;height:100%;}
+
+  .hud{
+    position:fixed; top:0; left:0; right:0;
+    display:flex; flex-direction:column; align-items:center;
+    padding-top:max(28px, env(safe-area-inset-top));
+    pointer-events:none;
+    z-index:5;
+  }
+  .score{
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+    font-size:56px;
+    color:var(--paper);
+    letter-spacing:1px;
+    text-shadow:0 2px 18px rgba(0,0,0,0.25);
+    transition:transform 0.12s ease;
+  }
+  .score.bump{transform:scale(1.18);}
+  .combo{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    font-weight:500;
+    color:var(--block-3);
+    letter-spacing:3px;
+    text-transform:uppercase;
+    margin-top:2px;
+    opacity:0;
+    transition:opacity 0.2s ease;
+  }
+  .combo.show{opacity:1;}
+  .best{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:rgba(255,255,255,0.55);
+    letter-spacing:2px;
+    margin-top:8px;
+    text-transform:uppercase;
+  }
+
+  .overlay{
+    position:fixed; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center;
+    z-index:10;
+    padding:24px;
+  }
+  .overlay .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    letter-spacing:4px;
+    color:var(--block-3);
+    text-transform:uppercase;
+    margin-bottom:14px;
+  }
+  .overlay h1{
+    font-size:clamp(36px,9vw,64px);
+    font-weight:700;
+    color:var(--paper);
+    line-height:1.05;
+    letter-spacing:-1px;
+  }
+  .overlay p{
+    font-size:15px;
+    color:rgba(255,255,255,0.7);
+    margin-top:14px;
+    max-width:320px;
+    line-height:1.6;
+  }
+  .stat-row{
+    display:flex; gap:36px;
+    margin-top:28px;
+  }
+  .stat{ text-align:center; }
+  .stat .num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:32px;
+    font-weight:700;
+    color:var(--paper);
+  }
+  .stat .lbl{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    letter-spacing:2px;
+    color:rgba(255,255,255,0.5);
+    text-transform:uppercase;
+    margin-top:4px;
+  }
+  .btn{
+    margin-top:32px;
+    max-width:280px;
+  }
+  .btn:active{transform:scale(0.95);}
+  .btn:focus-visible{outline:3px solid var(--block-3); outline-offset:3px;}
+
+  .hint{
+    position:fixed; bottom:max(36px, env(safe-area-inset-bottom));
+    left:0; right:0;
+    text-align:center;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:3px;
+    color:rgba(255,255,255,0.5);
+    text-transform:uppercase;
+    z-index:5;
+    pointer-events:none;
+    animation:pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:0.4;} 50%{opacity:0.9;}
+  }
+  .hidden{display:none !important;}
+
+  .login-box{
+    margin-top:28px;
+    display:flex; flex-direction:column; align-items:center;
+    gap:10px;
+    width:100%;
+    max-width:280px;
+    pointer-events:auto;
+  }
+  .login-box input{
+    width:100%;
+    font-family:'Space Grotesk',sans-serif;
+    font-size:15px;
+    color:var(--paper);
+    background:rgba(255,255,255,0.08);
+    border:1.5px solid rgba(255,255,255,0.25);
+    border-radius:12px;
+    padding:13px 16px;
+    text-align:center;
+    outline:none;
+    transition:border-color 0.15s ease, background 0.15s ease;
+  }
+  .login-box input::placeholder{ color:rgba(255,255,255,0.45); }
+  .login-box input:focus{ border-color:var(--block-3); background:rgba(255,255,255,0.12); }
+  .btn{
+    margin-top:0;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:16px;
+    color:var(--ink);
+    background:var(--paper);
+    border:none;
+    border-radius:999px;
+    padding:16px 40px;
+    cursor:pointer;
+    letter-spacing:0.3px;
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow:0 8px 24px rgba(0,0,0,0.25);
+    width:100%;
+  }
+  .btn-ghost{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:500;
+    font-size:13px;
+    color:rgba(255,255,255,0.65);
+    background:transparent;
+    border:none;
+    cursor:pointer;
+    padding:6px;
+    text-decoration:underline;
+    text-underline-offset:3px;
+  }
+  .btn-ghost:hover{ color:var(--paper); }
+  .login-note{
+    font-size:11px !important;
+    color:rgba(255,255,255,0.4) !important;
+    margin-top:2px !important;
+    max-width:260px;
+    line-height:1.5 !important;
+  }
+
+  .user-badge{
+    position:fixed;
+    top:max(20px, env(safe-area-inset-top));
+    left:20px;
+    z-index:6;
+    display:flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:rgba(255,255,255,0.85);
+    background:rgba(255,255,255,0.1);
+    border:1px solid rgba(255,255,255,0.18);
+    border-radius:999px;
+    padding:7px 14px 7px 12px;
+    pointer-events:auto;
+  }
+  .user-badge .dot{
+    width:6px; height:6px; border-radius:50%;
+    background:var(--block-5);
+    flex-shrink:0;
+  }
+  .user-badge button{
+    background:none; border:none; color:rgba(255,255,255,0.5);
+    font-family:'JetBrains Mono',monospace; font-size:11px;
+    cursor:pointer; padding:0; margin-left:4px;
+    text-decoration:underline; text-underline-offset:2px;
+  }
+  .user-badge button:hover{ color:var(--paper); }
+
+  .leaderboard{
+    margin-top:30px;
+    width:100%;
+    max-width:280px;
+    pointer-events:auto;
+  }
+  .lb-title{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    letter-spacing:3px;
+    color:rgba(255,255,255,0.4);
+    text-transform:uppercase;
+    margin-bottom:10px;
+  }
+  .lb-list{
+    display:flex; flex-direction:column;
+    gap:6px;
+  }
+  .lb-row{
+    display:flex; align-items:center; gap:10px;
+    background:rgba(255,255,255,0.035);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border-radius:10px;
+    padding:9px 14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .lb-row.me{
+    background:rgba(255,230,109,0.09);
+    border:1px solid rgba(255,230,109,0.3);
+  }
+  .lb-rank{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    font-weight:700;
+    color:var(--block-3);
+    width:18px;
+    text-align:left;
+    flex-shrink:0;
+  }
+  .lb-name{
+    flex:1; text-align:left;
+    font-size:13px;
+    color:var(--paper);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .lb-score{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    font-weight:700;
+    color:rgba(255,255,255,0.85);
+  }
+  .lb-empty{
+    font-size:12px;
+    color:rgba(255,255,255,0.4);
+    padding:8px 0;
+  }
+
+  /* Top 3 rank effects */
+  .lb-row.rank-1, .lb-row.rank-2, .lb-row.rank-3{
+    padding:11px 14px;
+    border:1px solid transparent;
+  }
+  .lb-row.rank-1{
+    background:linear-gradient(100deg, rgba(255,214,107,0.14), rgba(255,163,26,0.05) 60%);
+    border-color:rgba(255,214,107,0.35);
+    box-shadow:0 0 0 1px rgba(255,214,107,0.1), 0 4px 18px rgba(255,180,60,0.14);
+    animation:goldPulse 2.6s ease-in-out infinite;
+  }
+  .lb-row.rank-2{
+    background:linear-gradient(100deg, rgba(224,229,235,0.11), rgba(180,190,200,0.04) 60%);
+    border-color:rgba(224,229,235,0.28);
+    box-shadow:0 3px 14px rgba(200,210,220,0.09);
+  }
+  .lb-row.rank-3{
+    background:linear-gradient(100deg, rgba(217,151,90,0.11), rgba(160,100,50,0.04) 60%);
+    border-color:rgba(217,151,90,0.28);
+    box-shadow:0 3px 14px rgba(190,120,60,0.09);
+  }
+  @keyframes goldPulse{
+    0%,100%{ box-shadow:0 0 0 1px rgba(255,214,107,0.1), 0 4px 18px rgba(255,180,60,0.14); }
+    50%{ box-shadow:0 0 0 1px rgba(255,214,107,0.25), 0 4px 26px rgba(255,180,60,0.28); }
+  }
+  .lb-row.rank-1::before, .lb-row.rank-2::before, .lb-row.rank-3::before{
+    content:'';
+    position:absolute; top:0; left:-60%;
+    width:40%; height:100%;
+    background:linear-gradient(115deg, transparent, rgba(255,255,255,0.35), transparent);
+    transform:skewX(-20deg);
+    animation:lbShimmer 3.2s ease-in-out infinite;
+    pointer-events:none;
+  }
+  .lb-row.rank-2::before{ animation-duration:3.6s; animation-delay:0.4s; }
+  .lb-row.rank-3::before{ animation-duration:4s; animation-delay:0.8s; }
+  @keyframes lbShimmer{
+    0%{ left:-60%; }
+    35%,100%{ left:130%; }
+  }
+  .lb-medal{
+    font-size:16px;
+    width:18px;
+    text-align:left;
+    flex-shrink:0;
+    filter:drop-shadow(0 1px 3px rgba(0,0,0,0.35));
+  }
+  .lb-row.rank-1 .lb-name{ color:#FFE9BE; font-weight:700; }
+  .lb-row.rank-1 .lb-score{ color:#FFD66B; }
+  .lb-row.rank-2 .lb-name{ color:#F1F3F6; font-weight:600; }
+  .lb-row.rank-2 .lb-score{ color:#E4E7EB; }
+  .lb-row.rank-3 .lb-name{ color:#F0CBA8; font-weight:600; }
+  .lb-row.rank-3 .lb-score{ color:#E8A268; }
+
+  .btn-share{
+    margin-top:14px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    color:var(--paper);
+    background:rgba(255,255,255,0.12);
+    border:1.5px solid rgba(255,255,255,0.3);
+    border-radius:999px;
+    padding:14px 32px;
+    cursor:pointer;
+    width:100%;
+    max-width:280px;
+    transition:transform 0.15s ease, background 0.15s ease;
+  }
+  .btn-share:active{ transform:scale(0.96); }
+  .btn-share:hover{ background:rgba(255,255,255,0.18); }
+  .btn-share svg{ width:16px; height:16px; flex-shrink:0; }
+
+  .toast{
+    position:fixed;
+    bottom:max(36px, env(safe-area-inset-bottom));
+    left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    padding:13px 24px;
+    border-radius:999px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.3);
+    z-index:20;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.25s ease, transform 0.25s ease;
+  }
+  .toast.show{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
+
+  .challenge-banner{
+    display:flex; align-items:center; gap:10px;
+    background:rgba(255,230,109,0.14);
+    border:1px solid rgba(255,230,109,0.35);
+    border-radius:12px;
+    padding:12px 16px;
+    margin-top:22px;
+    max-width:280px;
+    font-size:13px;
+    color:var(--paper);
+    text-align:left;
+    line-height:1.5;
+  }
+  .challenge-banner strong{ color:var(--block-3); }
+
+  .btn-continue{
+    margin-top:32px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:16px;
+    color:var(--ink);
+    background:var(--block-3);
+    border:none;
+    border-radius:999px;
+    padding:16px 40px;
+    cursor:pointer;
+    width:100%;
+    max-width:280px;
+    box-shadow:0 8px 24px rgba(255,230,109,0.3);
+    transition:transform 0.15s ease;
+  }
+  .btn-continue:active{ transform:scale(0.96); }
+  .btn-continue .tag{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    letter-spacing:1px;
+    background:rgba(15,14,26,0.15);
+    padding:3px 7px;
+    border-radius:6px;
+  }
+
+  .ad-overlay{
+    position:fixed; inset:0;
+    z-index:40;
+    background:#000;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:20px;
+    padding:24px;
+    text-align:center;
+  }
+  .ad-eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:4px;
+    color:rgba(255,255,255,0.4);
+    text-transform:uppercase;
+  }
+  .ad-visual{
+    width:min(320px, 80vw);
+    aspect-ratio:16/10;
+    border-radius:16px;
+    background:linear-gradient(135deg, #1a1a2e, #2C2A4A, #4B4272);
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+    overflow:hidden;
+  }
+  .ad-visual::after{
+    content:'';
+    position:absolute; inset:0;
+    background:radial-gradient(circle at 30% 30%, rgba(255,255,255,0.08), transparent 60%);
+  }
+  .ad-visual .ad-block{
+    width:56px; height:56px; border-radius:12px;
+    background:var(--block-3);
+    animation:adFloat 1.8s ease-in-out infinite;
+  }
+  @keyframes adFloat{
+    0%,100%{ transform:translateY(-6px) rotate(-4deg); }
+    50%{ transform:translateY(6px) rotate(4deg); }
+  }
+  .ad-countdown{
+    font-family:'JetBrains Mono',monospace;
+    font-size:15px;
+    color:rgba(255,255,255,0.75);
+    letter-spacing:1px;
+  }
+  .ad-countdown b{ color:var(--paper); font-size:20px; }
+  .ad-progress-track{
+    width:min(320px, 80vw);
+    height:5px;
+    background:rgba(255,255,255,0.15);
+    border-radius:999px;
+    overflow:hidden;
+  }
+  .ad-progress-fill{
+    height:100%;
+    width:0%;
+    background:var(--block-3);
+    border-radius:999px;
+    transition:width 0.2s linear;
+  }
+  .ad-note{
+    font-size:12px;
+    color:rgba(255,255,255,0.35);
+    max-width:280px;
+    line-height:1.5;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .hint{animation:none; opacity:0.7;}
+    .btn{transition:none;}
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="game"></canvas>
+
+  <div class="hud">
+    <div class="score" id="score">0</div>
+    <div class="combo" id="combo">PERFECT ×0</div>
+    <div class="best" id="best">BEST 0</div>
+  </div>
+
+  <div class="hint" id="hint">탭해서 블록 떨어뜨리기</div>
+
+  <div class="user-badge hidden" id="userBadge">
+    <span class="dot"></span>
+    <span id="userBadgeName">GUEST</span>
+    <button id="logoutBtn">전환</button>
+  </div>
+
+  <div class="overlay" id="startScreen">
+    <div class="eyebrow">고도 측정 게임</div>
+    <h1>ALTITUDE</h1>
+    <p>움직이는 블록을 탭해서 떨어뜨리세요.<br>정확히 맞출수록 더 높이, 더 멀리 갑니다.</p>
+
+    <div class="challenge-banner hidden" id="challengeBanner"></div>
+
+    <div class="login-box" id="loginBox">
+      <input type="text" id="nicknameInput" placeholder="닉네임 (선택)" maxlength="12" autocomplete="off">
+      <button class="btn" id="startBtn">닉네임으로 시작</button>
+      <button class="btn-ghost" id="guestBtn">게스트로 바로 시작</button>
+      <p class="login-note">닉네임을 입력하면 기록이 리더보드에 남아요. 닉네임과 점수는 다른 플레이어에게도 공개돼요. 비밀번호는 없어요.</p>
+    </div>
+
+    <div class="leaderboard">
+      <div class="lb-title">Top Climbers</div>
+      <div class="lb-list" id="startLbList"><div class="lb-empty">불러오는 중…</div></div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="overScreen">
+    <div class="eyebrow" id="overEyebrow">착지 실패</div>
+    <h1 id="overTitle">떨어졌어요</h1>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="num" id="finalScore">0</div>
+        <div class="lbl">이번 기록</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="bestScore">0</div>
+        <div class="lbl">최고 기록</div>
+      </div>
+    </div>
+    <button class="btn-continue hidden" id="continueBtn">
+      <span class="tag">AD</span>
+      <span>광고 보고 한 번 더 도전하기</span>
+    </button>
+    <button class="btn" id="retryBtn">다시 쌓기</button>
+    <button class="btn-share" id="shareBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+      친구에게 기록 자랑하기
+    </button>
+
+    <div class="leaderboard">
+      <div class="lb-title">Top Climbers</div>
+      <div class="lb-list" id="overLbList"><div class="lb-empty">불러오는 중…</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="ad-overlay hidden" id="adOverlay">
+  <div class="ad-eyebrow">보상형 광고 (시뮬레이션)</div>
+  <div class="ad-visual"><div class="ad-block"></div></div>
+  <div class="ad-countdown"><b id="adSeconds">25</b>초 후 이어하기가 시작돼요</div>
+  <div class="ad-progress-track"><div class="ad-progress-fill" id="adProgressFill"></div></div>
+  <div class="ad-note">실제 광고가 아닌 대기 시간 시뮬레이션이에요. 끝나면 자동으로 마지막 스테이지에서 이어집니다.</div>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const comboEl = document.getElementById('combo');
+  const bestEl = document.getElementById('best');
+  const hintEl = document.getElementById('hint');
+  const startScreen = document.getElementById('startScreen');
+  const overScreen = document.getElementById('overScreen');
+  const finalScoreEl = document.getElementById('finalScore');
+  const bestScoreEl = document.getElementById('bestScore');
+  const overTitleEl = document.getElementById('overTitle');
+  const overEyebrowEl = document.getElementById('overEyebrow');
+  const startBtn = document.getElementById('startBtn');
+  const retryBtn = document.getElementById('retryBtn');
+  const nicknameInput = document.getElementById('nicknameInput');
+  const guestBtn = document.getElementById('guestBtn');
+  const userBadge = document.getElementById('userBadge');
+  const userBadgeName = document.getElementById('userBadgeName');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const startLbList = document.getElementById('startLbList');
+  const overLbList = document.getElementById('overLbList');
+  const shareBtn = document.getElementById('shareBtn');
+  const toast = document.getElementById('toast');
+  const challengeBanner = document.getElementById('challengeBanner');
+  const continueBtn = document.getElementById('continueBtn');
+  const adOverlay = document.getElementById('adOverlay');
+  const adSecondsEl = document.getElementById('adSeconds');
+  const adProgressFill = document.getElementById('adProgressFill');
+
+  let currentUser = null;
+  const HAS_STORAGE = typeof window.storage !== 'undefined' && window.storage !== null;
+
+  function sanitizeName(raw){
+    const cleaned = (raw || '').trim().replace(/\s+/g,' ').slice(0,12);
+    return cleaned;
+  }
+
+  function setUser(name){
+    currentUser = name || null;
+    if(currentUser){
+      userBadge.classList.remove('hidden');
+      userBadgeName.textContent = currentUser;
+      if(HAS_STORAGE){
+        window.storage.set('settings:nickname', currentUser, false).catch(()=>{});
+      }
+    } else {
+      userBadge.classList.add('hidden');
+    }
+  }
+
+  async function loadLastNickname(){
+    if(!HAS_STORAGE) return;
+    try{
+      const res = await window.storage.get('settings:nickname', false);
+      if(res && res.value){ nicknameInput.value = res.value; }
+    }catch(e){ /* no saved nickname yet, that's fine */ }
+  }
+
+  async function fetchLeaderboard(){
+    if(!HAS_STORAGE) return null;
+    try{
+      const list = await window.storage.list('player:', true);
+      if(!list || !list.keys || list.keys.length === 0) return [];
+      const entries = [];
+      for(const key of list.keys){
+        try{
+          const res = await window.storage.get(key, true);
+          if(res && res.value){
+            const parsed = JSON.parse(res.value);
+            if(parsed && typeof parsed.best === 'number'){
+              entries.push(parsed);
+            }
+          }
+        }catch(e){ /* skip unreadable entry */ }
+      }
+      entries.sort((a,b)=> b.best - a.best);
+      return entries.slice(0, 8);
+    }catch(e){
+      return [];
+    }
+  }
+
+  function renderLeaderboard(el, entries){
+    if(entries === null){
+      el.innerHTML = '<div class="lb-empty">이 환경에서는 리더보드를 사용할 수 없어요.</div>';
+      return;
+    }
+    if(!entries || entries.length === 0){
+      el.innerHTML = '<div class="lb-empty">아직 기록이 없어요. 첫 번째 등반가가 되어보세요.</div>';
+      return;
+    }
+    el.innerHTML = entries.map((e,i)=>{
+      const rank = i+1;
+      const isMe = currentUser && e.name === currentUser;
+      const rankClass = rank <= 3 ? ` rank-${rank}` : '';
+      const medals = {1:'🥇',2:'🥈',3:'🥉'};
+      const rankMarkup = medals[rank]
+        ? `<span class="lb-medal">${medals[rank]}</span>`
+        : `<span class="lb-rank">${rank}</span>`;
+      return `<div class="lb-row${rankClass}${isMe ? ' me' : ''}">
+        ${rankMarkup}
+        <span class="lb-name">${escapeHtml(e.name)}</span>
+        <span class="lb-score">${e.best}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  async function refreshLeaderboards(){
+    const entries = await fetchLeaderboard();
+    renderLeaderboard(startLbList, entries);
+    renderLeaderboard(overLbList, entries);
+  }
+
+  async function saveScoreIfNeeded(){
+    if(!currentUser || !HAS_STORAGE) return;
+    try{
+      let existingBest = 0;
+      try{
+        const res = await window.storage.get('player:' + currentUser, true);
+        if(res && res.value){
+          const parsed = JSON.parse(res.value);
+          existingBest = parsed.best || 0;
+        }
+      }catch(e){ /* no record yet */ }
+      if(score > existingBest){
+        await window.storage.set('player:' + currentUser, JSON.stringify({
+          name: currentUser, best: score, updatedAt: Date.now()
+        }), true);
+      }
+    }catch(e){ /* storage unavailable, ignore silently */ }
+  }
+
+  let toastTimer = null;
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>{ toast.classList.remove('show'); }, 2400);
+  }
+
+  function buildShareUrl(){
+    const url = new URL(window.location.href);
+    url.searchParams.set('score', score);
+    if(currentUser){ url.searchParams.set('name', currentUser); }
+    else { url.searchParams.delete('name'); }
+    return url.toString();
+  }
+
+  function buildShareText(){
+    const who = currentUser ? currentUser + '님이' : '제가';
+    return `${who} ALTITUDE에서 ${score}층까지 쌓았어요! 이 기록 넘어보세요 🧱`;
+  }
+
+  async function copyText(text){
+    try{
+      await navigator.clipboard.writeText(text);
+      return true;
+    }catch(e){
+      try{
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      }catch(e2){
+        return false;
+      }
+    }
+  }
+
+  async function handleShare(){
+    const shareUrl = buildShareUrl();
+    const shareText = buildShareText();
+
+    if(navigator.share){
+      try{
+        await navigator.share({ title: 'ALTITUDE', text: shareText, url: shareUrl });
+        return;
+      }catch(e){
+        if(e && e.name === 'AbortError') return; // user cancelled, no toast needed
+        // fall through to clipboard copy
+      }
+    }
+
+    const ok = await copyText(shareUrl);
+    showToast(ok ? '링크가 복사됐어요! 친구에게 붙여넣어 보세요' : '복사에 실패했어요. 주소창에서 직접 복사해주세요');
+  }
+
+  function readChallengeFromUrl(){
+    try{
+      const params = new URLSearchParams(window.location.search);
+      const challengeScore = params.get('score');
+      const challengeName = params.get('name');
+      if(challengeScore && !isNaN(Number(challengeScore))){
+        const who = challengeName ? escapeHtml(challengeName) : '친구';
+        challengeBanner.innerHTML = `<span>🏆</span><span><strong>${who}</strong>님이 <strong>${escapeHtml(challengeScore)}층</strong>까지 쌓았어요.<br>이 기록을 넘어보세요!</span>`;
+        challengeBanner.classList.remove('hidden');
+      }
+    }catch(e){ /* ignore malformed url */ }
+  }
+
+  let DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+  let W, H;
+  function resize(){
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W+'px'; canvas.style.height = H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const BLOCK_COLORS = ['#FF6B6B','#4ECDC4','#FFE66D','#A78BFA','#6BCB77','#FF9F6B','#6BAEFF'];
+  const SKY_STOPS = [
+    {h:0,   top:'#FFE0B8', bot:'#FFB199'},
+    {h:14,  top:'#FF9E7A', bot:'#7D5BA6'},
+    {h:32,  top:'#4B4272', bot:'#241F45'},
+    {h:55,  top:'#12112A', bot:'#050514'},
+    {h:85,  top:'#0B0B2A', bot:'#1A0B3A'},
+  ];
+
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function hex2rgb(h){ h=h.replace('#',''); return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)]; }
+  function rgb2str(r){ return `rgb(${r[0]|0},${r[1]|0},${r[2]|0})`; }
+  function lerpColor(c1,c2,t){
+    const a=hex2rgb(c1), b=hex2rgb(c2);
+    return rgb2str([lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)]);
+  }
+  function skyColors(level){
+    let lo = SKY_STOPS[0], hi = SKY_STOPS[SKY_STOPS.length-1];
+    for(let i=0;i<SKY_STOPS.length-1;i++){
+      if(level >= SKY_STOPS[i].h && level <= SKY_STOPS[i+1].h){
+        lo = SKY_STOPS[i]; hi = SKY_STOPS[i+1]; break;
+      }
+    }
+    if(level > SKY_STOPS[SKY_STOPS.length-1].h){ lo = hi = SKY_STOPS[SKY_STOPS.length-1]; }
+    const span = Math.max(1, hi.h - lo.h);
+    const t = Math.min(1, Math.max(0,(level - lo.h)/span));
+    return { top: lerpColor(lo.top, hi.top, t), bot: lerpColor(lo.bot, hi.bot, t) };
+  }
+
+  let state = 'idle'; // idle | playing | over
+  let stack = null, moving = null, cameraY = 0, targetCameraY = 0;
+  let score = 0, best = 0, comboCount = 0;
+  let particles = [], stars = [];
+  let clouds = [], birds = [], birdSpawnTimer = 3;
+  let baseWidth;
+  let hasUsedContinue = false;
+  let adTimer = null;
+
+  function seededStars(){
+    const arr=[];
+    for(let i=0;i<70;i++){
+      arr.push({x:Math.random(), y:Math.random(), r:Math.random()*1.6+0.4, tw:Math.random()*Math.PI*2});
+    }
+    return arr;
+  }
+
+  function initClouds(){
+    clouds = [];
+    const count = 6;
+    for(let i=0;i<count;i++){
+      clouds.push({
+        x: Math.random()*W,
+        yFrac: 0.08 + Math.random()*0.34,
+        scale: 0.55 + Math.random()*0.95,
+        speed: 5 + Math.random()*9,
+        dir: Math.random()<0.5 ? 1 : -1
+      });
+    }
+  }
+
+  function spawnBirdFlock(){
+    const dir = Math.random()<0.5 ? 1 : -1;
+    const count = 1 + Math.floor(Math.random()*3);
+    const baseY = H*(0.09 + Math.random()*0.22);
+    const speed = 46 + Math.random()*46;
+    for(let i=0;i<count;i++){
+      birds.push({
+        x: dir>0 ? -30-i*24 : W+30+i*24,
+        y: baseY + i*11,
+        dir, speed: speed + Math.random()*12,
+        size: 8 + Math.random()*5,
+        flapPhase: Math.random()*Math.PI*2,
+        flapSpeed: 6 + Math.random()*3
+      });
+    }
+  }
+
+  function cloudAlphaForLevel(level){
+    if(level <= 14) return 1;
+    if(level >= 32) return 0;
+    return 1 - (level-14)/(32-14);
+  }
+  function birdAlphaForLevel(level){
+    if(level <= 8) return 1;
+    if(level >= 22) return 0;
+    return 1 - (level-8)/(22-8);
+  }
+
+  function initGame(){
+    baseWidth = Math.min(W*0.62, 320);
+    const blockH = 44;
+    const groundY = 0;
+    stack = [{
+      x: W/2 - baseWidth/2, w: baseWidth, y: groundY, h: blockH,
+      color: BLOCK_COLORS[0]
+    }];
+    cameraY = 0; targetCameraY = 0;
+    score = 0; comboCount = 0;
+    particles = [];
+    stars = seededStars();
+    spawnMoving();
+    updateHUD();
+  }
+
+  function spawnMoving(){
+    const top = stack[stack.length-1];
+    const speed = Math.min(5.5, 2.4 + stack.length*0.09);
+    const dir = Math.random()<0.5 ? -1 : 1;
+    const startX = dir === 1 ? -top.w : W;
+    moving = {
+      x: startX, w: top.w, h: top.h,
+      y: top.y + top.h,
+      vx: speed * dir,
+      color: BLOCK_COLORS[stack.length % BLOCK_COLORS.length]
+    };
+  }
+
+  function updateHUD(){
+    scoreEl.textContent = score;
+    bestEl.textContent = 'BEST ' + best;
+  }
+
+  function bumpScore(){
+    scoreEl.classList.remove('bump');
+    void scoreEl.offsetWidth;
+    scoreEl.classList.add('bump');
+  }
+
+  function drop(){
+    if(state !== 'playing') return;
+    const top = stack[stack.length-1];
+    const mLeft = moving.x, mRight = moving.x + moving.w;
+    const tLeft = top.x, tRight = top.x + top.w;
+
+    const overlapLeft = Math.max(mLeft, tLeft);
+    const overlapRight = Math.min(mRight, tRight);
+    const overlapW = overlapRight - overlapLeft;
+
+    if(overlapW <= 4){
+      // total miss
+      spawnFallDebris(moving.x, moving.y, moving.w, moving.h, moving.color, moving.vx*4);
+      gameOver('miss');
+      return;
+    }
+
+    const perfectThreshold = 6;
+    const isPerfect = Math.abs(mLeft - tLeft) < perfectThreshold && Math.abs(mRight - tRight) < perfectThreshold;
+
+    let newBlock;
+    if(isPerfect){
+      newBlock = { x: tLeft, w: top.w, y: moving.y, h: moving.h, color: moving.color };
+      comboCount++;
+    } else {
+      newBlock = { x: overlapLeft, w: overlapW, y: moving.y, h: moving.h, color: moving.color };
+      comboCount = 0;
+      // debris
+      if(mLeft < overlapLeft){
+        spawnFallDebris(mLeft, moving.y, overlapLeft-mLeft, moving.h, moving.color, -3-Math.random()*2);
+      }
+      if(mRight > overlapRight){
+        spawnFallDebris(overlapRight, moving.y, mRight-overlapRight, moving.h, moving.color, 3+Math.random()*2);
+      }
+    }
+
+    stack.push(newBlock);
+    score++;
+    bumpScore();
+    if(isPerfect && comboCount >= 2){
+      comboEl.textContent = 'PERFECT ×' + comboCount;
+      comboEl.classList.add('show');
+    } else {
+      comboEl.classList.remove('show');
+    }
+
+    // camera target: keep top block near upper-middle once we've climbed
+    const screenAnchor = H*0.42;
+    const stackTopWorld = newBlock.y + newBlock.h;
+    targetCameraY = Math.max(0, stackTopWorld - screenAnchor);
+
+    spawnMoving();
+  }
+
+  function spawnFallDebris(x,y,w,h,color,vx){
+    particles.push({x,y,w,h,color,vx,vy:-2,rot:0,vrot:(Math.random()-0.5)*0.3,alive:true});
+  }
+
+  function gameOver(reason){
+    state = 'over';
+    if(score > best){ best = score; }
+    finalScoreEl.textContent = score;
+    bestScoreEl.textContent = best;
+    overTitleEl.textContent = score >= 10 ? '멋진 탑이에요!' : '떨어졌어요';
+    overEyebrowEl.textContent = reason === 'miss' ? '완전히 빗나갔어요' : '균형을 잃었어요';
+    hintEl.classList.add('hidden');
+    if(hasUsedContinue || !stack || stack.length <= 1){
+      continueBtn.classList.add('hidden');
+    } else {
+      continueBtn.classList.remove('hidden');
+    }
+    saveScoreIfNeeded().then(refreshLeaderboards);
+    setTimeout(()=>{ overScreen.classList.remove('hidden'); }, 550);
+  }
+
+  function update(dt){
+    if(state === 'playing'){
+      moving.x += moving.vx * dt * 60;
+      if(moving.x < -moving.w*0.4 || moving.x > W - moving.w*0.6){
+        // bounce within reasonable range so it stays mostly on screen
+      }
+      const minX = -moving.w*0.5, maxX = W - moving.w*0.5;
+      if(moving.x < minX){ moving.x = minX; moving.vx *= -1; }
+      if(moving.x > maxX){ moving.x = maxX; moving.vx *= -1; }
+    }
+
+    cameraY = lerp(cameraY, targetCameraY, 0.12);
+
+    for(const p of particles){
+      p.vy += 0.35;
+      p.x += p.vx * dt*60*0.6;
+      p.y -= p.vy * dt*60*0.6; // world y up positive, falling means y decreases... but we want debris to fall off screen
+      p.rot += p.vrot * dt*60;
+    }
+    particles = particles.filter(p => (p.y - cameraY) > -H*1.5);
+
+    // ambient sky life: clouds drift regardless of game state
+    for(const c of clouds){
+      c.x += c.dir * c.speed * dt;
+      const approxW = 95 * c.scale;
+      if(c.dir > 0 && c.x - approxW > W){ c.x = -approxW; }
+      if(c.dir < 0 && c.x + approxW < 0){ c.x = W + approxW; }
+    }
+
+    // occasional birds crossing while altitude is still low
+    const level = stack ? stack.length : 0;
+    birdSpawnTimer -= dt;
+    if(birdSpawnTimer <= 0 && level < 26){
+      spawnBirdFlock();
+      birdSpawnTimer = 6 + Math.random()*7;
+    }
+    for(const b of birds){
+      b.x += b.dir * b.speed * dt;
+      b.flapPhase += dt * b.flapSpeed;
+    }
+    birds = birds.filter(b => b.dir > 0 ? b.x < W + 60 : b.x > -60);
+  }
+
+  function worldToScreenY(worldY){
+    return H - 140 - (worldY - cameraY);
+  }
+
+  function drawCloud(cx, cy, scale, alpha){
+    if(alpha <= 0.01) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = 'rgba(255,255,255,0.4)';
+    ctx.shadowBlur = 16*scale;
+    const puffs = [[-32,8,18],[-11,-9,23],[13,-5,21],[35,7,17],[6,13,19]];
+    ctx.beginPath();
+    for(const [dx,dy,r] of puffs){
+      const px = cx + dx*scale, py = cy + dy*scale, pr = r*scale;
+      ctx.moveTo(px+pr, py);
+      ctx.arc(px, py, pr, 0, Math.PI*2);
+    }
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBird(x, y, size, flapPhase, alpha){
+    if(alpha <= 0.01) return;
+    ctx.save();
+    ctx.globalAlpha = alpha*0.75;
+    ctx.strokeStyle = 'rgba(30,24,46,0.55)';
+    ctx.lineWidth = Math.max(1.4, size*0.16);
+    ctx.lineCap = 'round';
+    const lift = Math.abs(Math.sin(flapPhase))*size*0.85;
+    ctx.beginPath();
+    ctx.moveTo(x-size, y);
+    ctx.quadraticCurveTo(x-size*0.4, y-lift, x, y);
+    ctx.quadraticCurveTo(x+size*0.4, y-lift, x+size, y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawGround(){
+    const groundY = worldToScreenY(0);
+    if(groundY < -80 || groundY > H + 200) return;
+    ctx.save();
+    const grad = ctx.createLinearGradient(0, groundY-36, 0, H+80);
+    grad.addColorStop(0, '#8FCB7A');
+    grad.addColorStop(1, '#356B45');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(0, groundY+26);
+    ctx.bezierCurveTo(W*0.22, groundY-14, W*0.36, groundY+20, W*0.5, groundY+4);
+    ctx.bezierCurveTo(W*0.66, groundY-10, W*0.8, groundY+22, W, groundY-2);
+    ctx.lineTo(W, H+80);
+    ctx.lineTo(0, H+80);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, groundY+26);
+    ctx.bezierCurveTo(W*0.22, groundY-14, W*0.36, groundY+20, W*0.5, groundY+4);
+    ctx.bezierCurveTo(W*0.66, groundY-10, W*0.8, groundY+22, W, groundY-2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function draw(){
+    const level = stack ? stack.length : 0;
+    const sky = skyColors(level);
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, sky.top);
+    grad.addColorStop(1, sky.bot);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,H);
+
+    // stars fade in with altitude
+    const starAlpha = Math.min(1, Math.max(0,(level-20)/30));
+    if(starAlpha > 0){
+      ctx.save();
+      ctx.globalAlpha = starAlpha;
+      ctx.fillStyle = '#FFFFFF';
+      for(const s of stars){
+        const tw = 0.6 + 0.4*Math.sin(performance.now()*0.002 + s.tw);
+        ctx.globalAlpha = starAlpha * tw;
+        ctx.beginPath();
+        ctx.arc(s.x*W, s.y*H*0.7, s.r, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // clouds fade out as we climb into dusk/night
+    const cAlpha = cloudAlphaForLevel(level);
+    if(cAlpha > 0.01){
+      for(const c of clouds){
+        drawCloud(c.x, c.yFrac*H, c.scale, cAlpha*0.88);
+      }
+    }
+
+    // birds only cross while we're still low in the sky
+    const bAlpha = birdAlphaForLevel(level);
+    if(bAlpha > 0.01){
+      for(const b of birds){
+        drawBird(b.x, b.y, b.size, b.flapPhase, bAlpha);
+      }
+    }
+
+    // ground / horizon — scrolls away below as the tower climbs
+    drawGround();
+
+    if(!stack) return;
+
+    // blocks
+    for(const b of stack){
+      const sy = worldToScreenY(b.y + b.h);
+      drawBlock(b.x, sy, b.w, b.h, b.color);
+    }
+    // moving block
+    if(state === 'playing' && moving){
+      const sy = worldToScreenY(moving.y + moving.h);
+      drawBlock(moving.x, sy, moving.w, moving.h, moving.color, true);
+    }
+    // debris
+    for(const p of particles){
+      const sy = worldToScreenY(p.y + p.h);
+      ctx.save();
+      ctx.translate(p.x + p.w/2, sy + p.h/2);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+    }
+  }
+
+  function drawBlock(x,y,w,h,color,active){
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.25)';
+    ctx.shadowBlur = active ? 22 : 10;
+    ctx.shadowOffsetY = 6;
+    const r = 8;
+    roundRect(ctx, x, y, w, h, r);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+
+    // top highlight strip
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = '#FFFFFF';
+    roundRect(ctx, x, y, w, h*0.35, r);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function roundRect(c,x,y,w,h,r){
+    r = Math.min(r, w/2, h/2);
+    c.beginPath();
+    c.moveTo(x+r,y);
+    c.arcTo(x+w,y,x+w,y+h,r);
+    c.arcTo(x+w,y+h,x,y+h,r);
+    c.arcTo(x,y+h,x,y,r);
+    c.arcTo(x,y,x+w,y,r);
+    c.closePath();
+  }
+
+  let lastT = performance.now();
+  function loop(now){
+    const dt = Math.min(0.032,(now-lastT)/1000);
+    lastT = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function startGame(){
+    startScreen.classList.add('hidden');
+    overScreen.classList.add('hidden');
+    hintEl.classList.remove('hidden');
+    comboEl.classList.remove('show');
+    hasUsedContinue = false;
+    continueBtn.classList.add('hidden');
+    initGame();
+    state = 'playing';
+  }
+
+  function playRewardAd(durationSec, onComplete){
+    adOverlay.classList.remove('hidden');
+    adProgressFill.style.width = '0%';
+    let remaining = durationSec;
+    adSecondsEl.textContent = remaining;
+
+    const start = performance.now();
+    clearInterval(adTimer);
+    adTimer = setInterval(()=>{
+      const elapsed = (performance.now() - start) / 1000;
+      remaining = Math.max(0, Math.ceil(durationSec - elapsed));
+      adSecondsEl.textContent = remaining;
+      const pct = Math.min(100, (elapsed / durationSec) * 100);
+      adProgressFill.style.width = pct + '%';
+      if(elapsed >= durationSec){
+        clearInterval(adTimer);
+        adOverlay.classList.add('hidden');
+        onComplete();
+      }
+    }, 100);
+  }
+
+  function continueGame(){
+    hasUsedContinue = true;
+    continueBtn.classList.add('hidden');
+    overScreen.classList.add('hidden');
+    hintEl.classList.remove('hidden');
+    comboEl.classList.remove('show');
+    comboCount = 0;
+    spawnMoving();
+    state = 'playing';
+  }
+
+  best = 0;
+  updateHUD();
+  initClouds();
+  requestAnimationFrame(loop);
+  loadLastNickname();
+  refreshLeaderboards();
+  readChallengeFromUrl();
+
+  shareBtn.addEventListener('click', handleShare);
+  continueBtn.addEventListener('click', ()=>{
+    const durationSec = Math.floor(Math.random() * 11) + 20; // 20~30초
+    playRewardAd(durationSec, continueGame);
+  });
+
+  startBtn.addEventListener('click', ()=>{
+    const name = sanitizeName(nicknameInput.value);
+    setUser(name || null);
+    startGame();
+  });
+  guestBtn.addEventListener('click', ()=>{
+    setUser(null);
+    startGame();
+  });
+  retryBtn.addEventListener('click', startGame);
+  logoutBtn.addEventListener('click', ()=>{
+    setUser(null);
+    nicknameInput.value = '';
+  });
+  nicknameInput.addEventListener('keydown', (e)=>{ e.stopPropagation(); });
+  nicknameInput.addEventListener('pointerdown', (e)=>{ e.stopPropagation(); });
+
+  function handleAction(e){
+    if(state === 'idle'){ return; }
+    if(state === 'over'){ return; }
+    drop();
+  }
+  window.addEventListener('pointerdown', handleAction);
+  window.addEventListener('keydown', (e)=>{
+    if(e.code === 'Space' || e.code === 'ArrowUp'){
+      e.preventDefault();
+      handleAction();
+    }
+  });
+})();
+</script>
+</body>
+</html>
