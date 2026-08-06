@@ -291,10 +291,12 @@
     border:1px solid transparent;
   }
   .lb-row.rank-1{
-    background:linear-gradient(100deg, rgba(255,214,107,0.14), rgba(255,163,26,0.05) 60%);
-    border-color:rgba(255,214,107,0.35);
-    box-shadow:0 0 0 1px rgba(255,214,107,0.1), 0 4px 18px rgba(255,180,60,0.14);
+    background:linear-gradient(100deg, rgba(255,209,89,0.2), rgba(255,150,20,0.06) 60%);
+    border-color:rgba(255,209,89,0.55);
+    box-shadow:0 0 0 1px rgba(255,209,89,0.15), 0 6px 22px rgba(255,170,40,0.22);
     animation:goldPulse 2.6s ease-in-out infinite;
+    transform:scale(1.035);
+    transform-origin:center;
   }
   .lb-row.rank-2{
     background:linear-gradient(100deg, rgba(224,229,235,0.11), rgba(180,190,200,0.04) 60%);
@@ -302,13 +304,13 @@
     box-shadow:0 3px 14px rgba(200,210,220,0.09);
   }
   .lb-row.rank-3{
-    background:linear-gradient(100deg, rgba(217,151,90,0.11), rgba(160,100,50,0.04) 60%);
-    border-color:rgba(217,151,90,0.28);
-    box-shadow:0 3px 14px rgba(190,120,60,0.09);
+    background:linear-gradient(100deg, rgba(157,102,58,0.16), rgba(110,68,32,0.06) 60%);
+    border-color:rgba(184,120,68,0.32);
+    box-shadow:0 3px 14px rgba(120,70,30,0.12);
   }
   @keyframes goldPulse{
-    0%,100%{ box-shadow:0 0 0 1px rgba(255,214,107,0.1), 0 4px 18px rgba(255,180,60,0.14); }
-    50%{ box-shadow:0 0 0 1px rgba(255,214,107,0.25), 0 4px 26px rgba(255,180,60,0.28); }
+    0%,100%{ box-shadow:0 0 0 1px rgba(255,209,89,0.15), 0 6px 22px rgba(255,170,40,0.22); }
+    50%{ box-shadow:0 0 0 1px rgba(255,209,89,0.35), 0 6px 30px rgba(255,170,40,0.4); }
   }
   .lb-row.rank-1::before, .lb-row.rank-2::before, .lb-row.rank-3::before{
     content:'';
@@ -326,18 +328,22 @@
     35%,100%{ left:130%; }
   }
   .lb-medal{
-    font-size:16px;
     width:18px;
-    text-align:left;
+    display:flex; align-items:center; justify-content:flex-start;
     flex-shrink:0;
-    filter:drop-shadow(0 1px 3px rgba(0,0,0,0.35));
   }
+  .lb-medal svg{
+    filter:drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+  }
+  .lb-row.rank-1 .lb-medal svg{ width:21px; height:21px; }
+  .lb-row.rank-2 .lb-medal svg{ width:17px; height:17px; }
+  .lb-row.rank-3 .lb-medal svg{ width:15px; height:15px; }
   .lb-row.rank-1 .lb-name{ color:#FFE9BE; font-weight:700; }
-  .lb-row.rank-1 .lb-score{ color:#FFD66B; }
+  .lb-row.rank-1 .lb-score{ color:#FFD166; }
   .lb-row.rank-2 .lb-name{ color:#F1F3F6; font-weight:600; }
   .lb-row.rank-2 .lb-score{ color:#E4E7EB; }
-  .lb-row.rank-3 .lb-name{ color:#F0CBA8; font-weight:600; }
-  .lb-row.rank-3 .lb-score{ color:#E8A268; }
+  .lb-row.rank-3 .lb-name{ color:#E8B98C; font-weight:600; }
+  .lb-row.rank-3 .lb-score{ color:#C9793F; }
 
   .btn-share{
     margin-top:14px;
@@ -576,6 +582,79 @@
   <div class="ad-note">실제 광고가 아닌 대기 시간 시뮬레이션이에요. 끝나면 자동으로 마지막 스테이지에서 이어집니다.</div>
 </div>
 
+<script type="module">
+  // ─────────────────────────────────────────────────────────────
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAMxggFebXy9R04vx4I0phFzx51-RUcKKA",
+  authDomain: "stack-higher.firebaseapp.com",
+  projectId: "stack-higher",
+  storageBucket: "stack-higher.firebasestorage.app",
+  messagingSenderId: "108931448671",
+  appId: "1:108931448671:web:9201337d629cdc280440ea",
+  measurementId: "G-W0PW3CG0WY"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+  // ─────────────────────────────────────────────────────────────
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  window.__fsReady = (async () => {
+    try{
+      if(!firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('YOUR_')){
+        return null; // 설정 안 됨 — 조용히 비활성화
+      }
+      const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js");
+      const { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, orderBy, limit } =
+        await import("https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js");
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      function slugify(name){
+        return String(name).trim().replace(/[/\s]+/g, '_').slice(0, 60) || ('guest_' + Date.now());
+      }
+
+      return {
+        async fetchTop(n){
+          const q = query(collection(db, 'leaderboard'), orderBy('best', 'desc'), limit(n));
+          const snap = await getDocs(q);
+          const arr = [];
+          snap.forEach(d => arr.push(d.data()));
+          return arr;
+        },
+        async saveScore(name, best){
+          const ref = doc(db, 'leaderboard', slugify(name));
+          const snap = await getDoc(ref);
+          const existing = snap.exists() ? (snap.data().best || 0) : 0;
+          if(best > existing){
+            await setDoc(ref, { name, best, updatedAt: Date.now() });
+          }
+        }
+      };
+    }catch(e){
+      console.warn('Firebase 초기화에 실패해서 리더보드가 비활성화됩니다.', e);
+      return null;
+    }
+  })();
+</script>
+
 <script>
 (function(){
   const canvas = document.getElementById('game');
@@ -610,6 +689,22 @@
   let currentUser = null;
   const HAS_STORAGE = typeof window.storage !== 'undefined' && window.storage !== null;
 
+  let firebaseAPI; // undefined = not checked yet, null = unavailable, object = ready
+  async function ensureFirebase(){
+    if(firebaseAPI !== undefined) return firebaseAPI;
+    let tries = 0;
+    while(typeof window.__fsReady === 'undefined' && tries < 150){
+      await new Promise(r => setTimeout(r, 20));
+      tries++;
+    }
+    try{
+      firebaseAPI = window.__fsReady ? await window.__fsReady : null;
+    }catch(e){
+      firebaseAPI = null;
+    }
+    return firebaseAPI;
+  }
+
   function sanitizeName(raw){
     const cleaned = (raw || '').trim().replace(/\s+/g,' ').slice(0,12);
     return cleaned;
@@ -637,6 +732,12 @@
   }
 
   async function fetchLeaderboard(){
+    const fb = await ensureFirebase();
+    if(fb){
+      try{
+        return await fb.fetchTop(8);
+      }catch(e){ /* fall through to other backends */ }
+    }
     if(!HAS_STORAGE) return null;
     try{
       const list = await window.storage.list('player:', true);
@@ -673,9 +774,8 @@
       const rank = i+1;
       const isMe = currentUser && e.name === currentUser;
       const rankClass = rank <= 3 ? ` rank-${rank}` : '';
-      const medals = {1:'🥇',2:'🥈',3:'🥉'};
-      const rankMarkup = medals[rank]
-        ? `<span class="lb-medal">${medals[rank]}</span>`
+      const rankMarkup = rank <= 3
+        ? `<span class="lb-medal">${crownIcon(rank)}</span>`
         : `<span class="lb-rank">${rank}</span>`;
       return `<div class="lb-row${rankClass}${isMe ? ' me' : ''}">
         ${rankMarkup}
@@ -683,6 +783,18 @@
         <span class="lb-score">${e.best}</span>
       </div>`;
     }).join('');
+  }
+
+  function crownIcon(rank){
+    const colors = { 1:'#FFD166', 2:'#E4E7EB', 3:'#D98A4C' };
+    const color = colors[rank] || '#FFFFFF';
+    return `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 8.5L7.2 12L12 5L16.8 12L21 8.5L19.3 17.5H4.7L3 8.5Z" fill="${color}" stroke="${color}" stroke-width="1" stroke-linejoin="round"/>
+      <rect x="4.3" y="18.3" width="15.4" height="2.2" rx="1" fill="${color}"/>
+      <circle cx="3" cy="8.5" r="1.4" fill="${color}"/>
+      <circle cx="12" cy="5" r="1.4" fill="${color}"/>
+      <circle cx="21" cy="8.5" r="1.4" fill="${color}"/>
+    </svg>`;
   }
 
   function escapeHtml(s){
@@ -696,7 +808,15 @@
   }
 
   async function saveScoreIfNeeded(){
-    if(!currentUser || !HAS_STORAGE) return;
+    if(!currentUser) return;
+    const fb = await ensureFirebase();
+    if(fb){
+      try{
+        await fb.saveScore(currentUser, score);
+        return;
+      }catch(e){ /* fall through to other backends */ }
+    }
+    if(!HAS_STORAGE) return;
     try{
       let existingBest = 0;
       try{
