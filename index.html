@@ -50,7 +50,10 @@
     padding-top:max(28px, env(safe-area-inset-top));
     pointer-events:none;
     z-index:5;
+    opacity:1;
+    transition:opacity 0.25s ease;
   }
+  .hud.hidden{ opacity:0; }
   .score{
     font-family:'JetBrains Mono',monospace;
     font-weight:700;
@@ -84,11 +87,17 @@
 
   .overlay{
     position:fixed; inset:0;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
     text-align:center;
     z-index:10;
     padding:24px;
+    padding-top:max(120px, calc(env(safe-area-inset-top) + 100px));
+    padding-bottom:max(40px, env(safe-area-inset-bottom));
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
   }
+  .overlay > *{ flex-shrink:0; }
+  #startScreen{ justify-content:center; }
   .overlay .eyebrow{
     font-family:'JetBrains Mono',monospace;
     font-size:12px;
@@ -525,7 +534,7 @@
 <div id="stage">
   <canvas id="game"></canvas>
 
-  <div class="hud">
+  <div class="hud hidden" id="hud">
     <div class="score" id="score">0</div>
     <div class="combo" id="combo">PERFECT ×0</div>
     <div class="best" id="best">BEST 0</div>
@@ -625,34 +634,48 @@
         return null; // 설정 안 됨 — 조용히 비활성화
       }
       const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app.js`);
-      const { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, orderBy, limit } =
+      const { initializeFirestore, doc, getDoc, setDoc, collection, getDocs, query, orderBy, limit } =
         await import(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-firestore.js`);
 
       const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
+      // 일부 모바일 통신사/공유기 프록시는 Firestore의 실시간 스트리밍 연결을 막아서
+      // 응답이 오지도 실패하지도 않고 계속 걸려있게 만들 수 있어요.
+      // 롱폴링을 강제해서 이런 환경에서도 안정적으로 통신하도록 함.
+      const db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        useFetchStreams: false
+      });
 
       function slugify(name){
         return String(name).trim().replace(/[/\s]+/g, '_').slice(0, 60) || ('guest_' + Date.now());
       }
 
+      function withTimeout(promise, ms){
+        return Promise.race([
+          promise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+        ]);
+      }
+
       // 연결이 실제로 되는지 바로 한 번 확인해서, 안 되면 원인을 window.__fsError에 남긴다
-      await getDocs(query(collection(db, 'leaderboard'), limit(1)));
+      // (막힌 네트워크에서 무한정 걸려있지 않도록 8초 타임아웃을 둠)
+      await withTimeout(getDocs(query(collection(db, 'leaderboard'), limit(1))), 8000);
 
       window.__fsError = null;
       return {
         async fetchTop(n){
           const q = query(collection(db, 'leaderboard'), orderBy('best', 'desc'), limit(n));
-          const snap = await getDocs(q);
+          const snap = await withTimeout(getDocs(q), 8000);
           const arr = [];
           snap.forEach(d => arr.push(d.data()));
           return arr;
         },
         async saveScore(name, best){
           const ref = doc(db, 'leaderboard', slugify(name));
-          const snap = await getDoc(ref);
+          const snap = await withTimeout(getDoc(ref), 8000);
           const existing = snap.exists() ? (snap.data().best || 0) : 0;
           if(best > existing){
-            await setDoc(ref, { name, best, updatedAt: Date.now() });
+            await withTimeout(setDoc(ref, { name, best, updatedAt: Date.now() }), 8000);
           }
         }
       };
@@ -672,6 +695,7 @@
   const comboEl = document.getElementById('combo');
   const bestEl = document.getElementById('best');
   const hintEl = document.getElementById('hint');
+  const hudEl = document.getElementById('hud');
   const startScreen = document.getElementById('startScreen');
   const overScreen = document.getElementById('overScreen');
   const finalScoreEl = document.getElementById('finalScore');
@@ -707,7 +731,14 @@
       tries++;
     }
     try{
-      firebaseAPI = window.__fsReady ? await window.__fsReady : null;
+      if(!window.__fsReady){ firebaseAPI = null; return firebaseAPI; }
+      firebaseAPI = await Promise.race([
+        window.__fsReady,
+        new Promise(resolve => setTimeout(() => {
+          if(!window.__fsError){ window.__fsError = '연결 시간이 너무 오래 걸려요 (네트워크 문제일 수 있어요).'; }
+          resolve(null);
+        }, 10000))
+      ]);
     }catch(e){
       firebaseAPI = null;
     }
@@ -1124,6 +1155,7 @@
     overTitleEl.textContent = score >= 10 ? '멋진 탑이에요!' : '떨어졌어요';
     overEyebrowEl.textContent = reason === 'miss' ? '완전히 빗나갔어요' : '균형을 잃었어요';
     hintEl.classList.add('hidden');
+    hudEl.classList.add('hidden');
     if(hasUsedContinue || !stack || stack.length <= 1){
       continueBtn.classList.add('hidden');
     } else {
@@ -1354,6 +1386,7 @@
     startScreen.classList.add('hidden');
     overScreen.classList.add('hidden');
     hintEl.classList.remove('hidden');
+    hudEl.classList.remove('hidden');
     comboEl.classList.remove('show');
     hasUsedContinue = false;
     continueBtn.classList.add('hidden');
@@ -1388,6 +1421,7 @@
     continueBtn.classList.add('hidden');
     overScreen.classList.add('hidden');
     hintEl.classList.remove('hidden');
+    hudEl.classList.remove('hidden');
     comboEl.classList.remove('show');
     comboCount = 0;
     spawnMoving();
